@@ -1,5 +1,13 @@
 # cudarc-pinctx
 
+> Vendored cudarc 0.11.9 with one patch: thread-local cache of the bound
+> CUDA context. `bind_to_thread()` skips `cuCtxSetCurrent` when already
+> current. Measured on EriDiffusion zimage LoRA: 91,637 → 0
+> `cuCtxSetCurrent` calls per training step, −55.7% total driver API
+> calls, −6.9% wall.
+
+---
+
 A vendored copy of [cudarc](https://github.com/coreylowman/cudarc) 0.11.9 with
 **one patch**: per-thread cache of the bound CUDA context, so
 `CudaDevice::bind_to_thread()` skips the underlying `cuCtxSetCurrent` driver
