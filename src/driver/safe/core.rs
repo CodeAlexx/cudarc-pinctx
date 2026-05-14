@@ -244,8 +244,26 @@ pub struct CudaSlice<T> {
 unsafe impl<T: Send> Send for CudaSlice<T> {}
 unsafe impl<T: Sync> Sync for CudaSlice<T> {}
 
+// Optional global "skip cudaFree" hook (used by flame_core::cuda_alloc_pool
+// to mark ring-slab-owned ptrs as external).
+static EXTERNAL_PTR_HOOK: std::sync::atomic::AtomicPtr<()> =
+    std::sync::atomic::AtomicPtr::new(std::ptr::null_mut());
+
+/// Install a hook called from `CudaSlice::drop` to test whether a pointer is
+/// externally owned. Idempotent.
+pub fn install_external_ptr_hook(hook: fn(u64) -> bool) {
+    EXTERNAL_PTR_HOOK.store(hook as *mut (), std::sync::atomic::Ordering::Release);
+}
+
 impl<T> Drop for CudaSlice<T> {
     fn drop(&mut self) {
+        let hook_ptr = EXTERNAL_PTR_HOOK.load(std::sync::atomic::Ordering::Acquire);
+        if !hook_ptr.is_null() {
+            let hook: fn(u64) -> bool = unsafe { std::mem::transmute(hook_ptr) };
+            if hook(self.cu_device_ptr) {
+                return;
+            }
+        }
         self.device.bind_to_thread().unwrap();
         unsafe {
             if self.device.is_async {

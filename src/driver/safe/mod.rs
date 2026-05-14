@@ -10,7 +10,10 @@ pub(crate) mod ptx;
 pub(crate) mod threading;
 
 pub use self::alloc::{DeviceRepr, ValidAsZeroBits};
-pub use self::core::{CudaDevice, CudaFunction, CudaSlice, CudaStream, CudaView, CudaViewMut};
+pub use self::core::{
+    install_external_ptr_hook, CudaDevice, CudaFunction, CudaSlice, CudaStream, CudaView,
+    CudaViewMut,
+};
 pub use self::device_ptr::{DevicePtr, DevicePtrMut, DeviceSlice};
 pub use self::external_memory::{ExternalMemory, MappedBuffer};
 pub use self::launch::{LaunchAsync, LaunchConfig};
