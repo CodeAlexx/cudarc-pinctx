@@ -69,7 +69,20 @@ impl CudaDevice {
                 sys::CUdevice_attribute_enum::CU_DEVICE_ATTRIBUTE_MEMORY_POOLS_SUPPORTED,
             )?
         };
-        let is_async = value > 0;
+        // 2026-05-15: `CUDARC_FORCE_SYNC_ALLOC=1` forces the device to use
+        // sync `cuMemAlloc` / `cuMemFree` instead of cudart's async mempool
+        // (`cuMemAllocAsync` / `cuMemFreeAsync`). PyTorch's
+        // `CUDACachingAllocator` uses sync alloc exclusively — its caching
+        // layer is built on top of `cuMemAlloc`, not cudart's mempool. The
+        // async mempool has a documented stale-VA reuse bug under high
+        // alloc/free churn (see flame-core/HANDOFF_2026-05-14_OT_PORT_PLAN.md
+        // and HANDOFF_2026-05-14_F32_MEMPOOL_BUG_OPEN.md). Forcing sync
+        // alloc replicates PyTorch's defense.
+        let is_async = if std::env::var("CUDARC_FORCE_SYNC_ALLOC").as_deref() == Ok("1") {
+            false
+        } else {
+            value > 0
+        };
 
         let device = CudaDevice {
             cu_device,
@@ -103,7 +116,12 @@ impl CudaDevice {
                 sys::CUdevice_attribute_enum::CU_DEVICE_ATTRIBUTE_MEMORY_POOLS_SUPPORTED,
             )?
         };
-        let is_async = value > 0;
+        // 2026-05-15: see comment on the matching block in `new()`.
+        let is_async = if std::env::var("CUDARC_FORCE_SYNC_ALLOC").as_deref() == Ok("1") {
+            false
+        } else {
+            value > 0
+        };
 
         let stream = result::stream::create(result::stream::StreamKind::NonBlocking)?;
 
